@@ -1,0 +1,74 @@
+name: Auto Build and Push to Docker Hub
+
+on:
+  schedule:
+    - cron: '0 * * * *'
+  workflow_dispatch:
+
+jobs:
+  check-and-build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+    - name: Checkout repo
+      uses: actions/checkout@v4
+
+    - name: Get latest commit SHA from upstream
+      id: upstream
+      run: |
+        LATEST_SHA=$(git ls-remote https://github.com/HKUDS/nanobot.git HEAD | cut -f1)
+        echo "LATEST_SHA=$LATEST_SHA" >> $GITHUB_OUTPUT
+
+    - name: Restore last built SHA (if exists)
+      id: last
+      run: |
+        if [ -f .upstream_sha ]; then
+          echo "LAST_SHA=$(cat .upstream_sha)" >> $GITHUB_OUTPUT
+        else
+          echo "LAST_SHA=none" >> $GITHUB_OUTPUT
+        fi
+
+    - name: Check if upstream changed
+      id: diff
+      run: |
+        if [ "${{ steps.upstream.outputs.LATEST_SHA }}" != "${{ steps.last.outputs.LAST_SHA }}" ]; then
+          echo "changed=true" >> $GITHUB_OUTPUT
+        else
+          echo "changed=false" >> $GITHUB_OUTPUT
+        fi
+
+    - name: Set up Docker Buildx
+      if: steps.diff.outputs.changed == 'true'
+      uses: docker/setup-buildx-action@v3
+
+    - name: Login to Docker Hub
+      if: steps.diff.outputs.changed == 'true'
+      uses: docker/login-action@v3
+      with:
+        username: ${{ secrets.DOCKERHUB_USERNAME }}
+        password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+    - name: Build and push Docker image
+      if: steps.diff.outputs.changed == 'true'
+      uses: docker/build-push-action@v6
+      with:
+        context: .
+        push: true
+        tags: |
+          festum/nanobot:latest
+          festum/nanobot:${{ steps.upstream.outputs.LATEST_SHA }}
+
+    - name: Update .upstream_sha
+      if: steps.diff.outputs.changed == 'true'
+      run: |
+        echo "${{ steps.upstream.outputs.LATEST_SHA }}" > .upstream_sha
+
+    - name: Commit updated SHA
+      if: steps.diff.outputs.changed == 'true'
+      uses: EndBug/add-and-commit@v9
+      with:
+        add: '.upstream_sha'
+        message: 'ci: update upstream SHA to ${{ steps.upstream.outputs.LATEST_SHA }}'
+        default_author: github_actions
+        push: origin HEAD:${{ github.ref_name }}
