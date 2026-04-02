@@ -70,6 +70,8 @@ jobs:
             festum/nanobot:latest
             festum/nanobot:${{ steps.upstream.outputs.LATEST_TAG }}
             festum/nanobot:${{ steps.upstream.outputs.LATEST_SHA }}
+          build-args: |
+            NANOBOT_VERSION=${{ steps.upstream.outputs.LATEST_SHA }}
 
       - name: Update .upstream_sha
         if: steps.diff.outputs.changed == 'true'
