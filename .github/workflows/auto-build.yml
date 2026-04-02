@@ -14,12 +14,22 @@ jobs:
       - name: Checkout repo
         uses: actions/checkout@v6
 
-      - name: Get latest tag from upstream
+      - name: Get latest tag/SHA from upstream
         id: upstream
         run: |
           LATEST_TAG=$(git ls-remote --tags https://github.com/HKUDS/nanobot.git | \
             awk -F/ '{print $3}' | grep -v '{}' | sort -V | tail -n1)
-          echo "LATEST_TAG=$LATEST_TAG" >> $GITHUB_OUTPUT
+          if [ -n "$LATEST_TAG" ]; then
+            echo "LATEST_TAG=$LATEST_TAG" >> $GITHUB_OUTPUT
+          else
+            echo "LATEST_TAG=latest" >> $GITHUB_OUTPUT
+          fi
+          LATEST_SHA=$(git ls-remote --heads https://github.com/HKUDS/nanobot.git main | awk '{print $1}')
+          if [ -n "$LATEST_SHA" ]; then
+            echo "LATEST_SHA=$LATEST_SHA" >> $GITHUB_OUTPUT
+          else
+            echo "LATEST_SHA=none" >> $GITHUB_OUTPUT
+          fi
 
       - name: Restore last built SHA (if exists)
         id: last
