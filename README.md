@@ -11,7 +11,7 @@ This repository provides a pipeline to monitor [HKUDS/nanobot](https://github.co
 ## Dockerfile
 
 ```dockerfile
-FROM python:3.12-slim
+FROM python:3.14-slim
 
 RUN pip install --upgrade --no-cache-dir nanobot-ai
 WORKDIR /root/.nanobot
