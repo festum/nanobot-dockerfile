@@ -1,14 +1,15 @@
-name: Build Latest Main
+name: Build Main Docker Image
 
 description: >
-  Manually trigger a build that always uses the most recently updated main branch, regardless of the current checkout state. Use this to force a build from current production code.
+  Automatically build from the latest main branch and tag as 'main'. Also allows manual triggering.
 
 on:
+  schedule:
+    - cron: "0 * * * *"
   workflow_dispatch:
 
 jobs:
-  manual-main-build:
-    name: Build from Latest Main
+  check-and-build:
     runs-on: ubuntu-latest
     steps:
       - name: Force Checkout Latest Main Branch
@@ -17,11 +18,7 @@ jobs:
           ref: main
           fetch-depth: 0
 
-      - name: Show Latest Main Commit (for audit)
-        run: |
-          git log -1 --pretty=format:'Built from main@%H (%cd)'
-
-      - name: Get latest tag from upstream
+      - name: Get latest SHA from upstream
         id: upstream
         run: |
           LATEST_SHA=$(git ls-remote https://github.com/HKUDS/nanobot.git refs/heads/main | awk '{ print $1 }')
@@ -42,7 +39,7 @@ jobs:
           context: .
           push: true
           tags: |
-            festum/nanobot:latest
+            festum/nanobot:main
             festum/nanobot:${{ steps.upstream.outputs.LATEST_SHA }}
           build-args: |
             NANOBOT_VERSION=${{ steps.upstream.outputs.LATEST_SHA }}
