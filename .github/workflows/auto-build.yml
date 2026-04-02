@@ -38,19 +38,33 @@ jobs:
           echo "changed=false" >> $GITHUB_OUTPUT
         fi
 
-    - name: Set up Docker Buildx
+    - name: Check Docker Hub credentials
+      id: creds
       if: steps.diff.outputs.changed == 'true'
+      env:
+        DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+        DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
+      run: |
+        if [ -n "$DOCKERHUB_USERNAME" ] && [ -n "$DOCKERHUB_TOKEN" ]; then
+          echo "available=true" >> $GITHUB_OUTPUT
+        else
+          echo "available=false" >> $GITHUB_OUTPUT
+          echo "::warning::DOCKERHUB_USERNAME or DOCKERHUB_TOKEN secret is not set; skipping Docker build and push."
+        fi
+
+    - name: Set up Docker Buildx
+      if: steps.creds.outputs.available == 'true'
       uses: docker/setup-buildx-action@v4
 
     - name: Login to Docker Hub
-      if: steps.diff.outputs.changed == 'true'
+      if: steps.creds.outputs.available == 'true'
       uses: docker/login-action@v4
       with:
         username: ${{ secrets.DOCKERHUB_USERNAME }}
         password: ${{ secrets.DOCKERHUB_TOKEN }}
 
     - name: Build and push Docker image
-      if: steps.diff.outputs.changed == 'true'
+      if: steps.creds.outputs.available == 'true'
       uses: docker/build-push-action@v7
       with:
         context: .
@@ -60,12 +74,12 @@ jobs:
           festum/nanobot:${{ steps.upstream.outputs.LATEST_SHA }}
 
     - name: Update .upstream_sha
-      if: steps.diff.outputs.changed == 'true'
+      if: steps.creds.outputs.available == 'true'
       run: |
         echo "${{ steps.upstream.outputs.LATEST_SHA }}" > .upstream_sha
 
     - name: Commit updated SHA
-      if: steps.diff.outputs.changed == 'true'
+      if: steps.creds.outputs.available == 'true'
       uses: EndBug/add-and-commit@v10
       with:
         add: '.upstream_sha'
